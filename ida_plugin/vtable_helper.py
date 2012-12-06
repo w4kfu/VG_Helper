@@ -1,7 +1,38 @@
 import idc 
 import idaapi
 import idautils
+import ctypes
 
+class VtableHelperForm(Form):
+	def __init__(self):
+		Form.__init__(self, r"""Vtable Helper
+		<#Class Name :{txtClassName}>
+		<#Class Size :{iClassSize}>
+		<#Vtable Addr :{iVtableAddr}>
+
+		""", {
+		    	'txtClassName'	: 	Form.StringInput(),
+			'iClassSize'	:	Form.NumericInput(tp=Form.FT_RAWHEX),
+			'iVtableAddr' 	:	Form.NumericInput(tp=Form.FT_ADDR),
+		})
+
+	def Show(self, cfg):
+        	# Compile the form once
+        	#if not self.Compiled():
+            	_, args = self.Compile()
+
+		# Remember the config
+        	self.cfg = cfg
+
+	        # Execute the form
+        	ok = self.Execute()
+
+        	# Forget the cfg
+        	del self.cfg
+		
+		return ok
+
+		
 class vtable_helper(idaapi.plugin_t):
 	flags = 0
 	comment = "Plugin for creating and commenting automatically vtable stuff"
@@ -13,7 +44,12 @@ class vtable_helper(idaapi.plugin_t):
 		return idaapi.PLUGIN_OK
 
 	def run(self, args):
-		pass
+        	f = VtableHelperForm()
+		cfg = 0
+        	# Show the form
+        	ok = f.Show(cfg)
+        	if ok == 0:
+            		f.Free()
 
 	def term(self):
 		pass
