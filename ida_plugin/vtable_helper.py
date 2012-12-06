@@ -12,26 +12,26 @@ class VtableHelperForm(Form):
 
 		""", {
 		    	'txtClassName'	: 	Form.StringInput(),
-			'iClassSize'	:	Form.NumericInput(tp=Form.FT_RAWHEX),
-			'iVtableAddr' 	:	Form.NumericInput(tp=Form.FT_ADDR),
+			'iClassSize'	:	Form.NumericInput(),
+			'iVtableAddr' 	:	Form.NumericInput(),
 		})
 
-	def Show(self, cfg):
+	def OnFormChange(self, fid):
+		return 1
+
+
+	def Show(self):
         	# Compile the form once
-        	#if not self.Compiled():
-            	_, args = self.Compile()
-
-		# Remember the config
-        	self.cfg = cfg
-
+        	if not self.Compiled():
+            		_, args = self.Compile()
 	        # Execute the form
         	ok = self.Execute()
-
-        	# Forget the cfg
-        	del self.cfg
-		
+		if (ok != 0):
+			NClass = TClass(self.txtClassName.value, 
+					self.iClassSize.value, 
+					self.iVtableAddr.value)
+			NClass.print_class()
 		return ok
-
 		
 class vtable_helper(idaapi.plugin_t):
 	flags = 0
@@ -45,9 +45,8 @@ class vtable_helper(idaapi.plugin_t):
 
 	def run(self, args):
         	f = VtableHelperForm()
-		cfg = 0
         	# Show the form
-        	ok = f.Show(cfg)
+        	ok = f.Show()
         	if ok == 0:
             		f.Free()
 
@@ -60,6 +59,11 @@ class TClass():
 		self.addr_vtable = addrvtable
 		self.size = size
 		self.vtable = {}
+	# debug
+	def print_class(self):
+		print("ClassName : %s" % self.name)
+		print("ClassSize : %X" % self.size)
+		print("Addr_vtable : %X" % self.addr_vtable)
 	def get_size(self):
 		return self.size
 	def get_addr(self):
