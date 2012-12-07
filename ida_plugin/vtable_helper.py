@@ -63,6 +63,7 @@ class vtable_helper(idaapi.plugin_t):
     		self.idphook.hook()
 		self.segname = "vtablehelper"
 		self.getinfo()
+		self.seg = 0
 		return idaapi.PLUGIN_KEEP
 
 	def getinfo(self):
@@ -71,7 +72,13 @@ class vtable_helper(idaapi.plugin_t):
 				print("[+] Segment vtablehelper found !")
 				self.infostart = idc.SegStart(seg)
 				self.infoend = idc.SegEnd(seg)
+				self.seg = seg
 
+	def saveinfo(self):
+		if (self.seg == 0):
+			i = AskYN(0, "Segment vtablehelper doesn't exist, do you want to create it for saving information ?")
+			if (i == -1 or i == 0):
+				return
 
 	def run(self, args):
         	f = VtableHelperForm()
@@ -80,6 +87,7 @@ class vtable_helper(idaapi.plugin_t):
             		f.Free()
 
 	def term(self):
+		self.saveinfo()
 		if self.idphook:
 			self.idphook.unhook()
 
@@ -88,7 +96,7 @@ class TClass():
 		self.name = name
 		self.addr_vtable = addrvtable
 		self.size = size
-		self.vtable = {}
+		self.vtable = 0
 
 	def printdbg(self):
 		print("ClassName : %s" % self.name)
@@ -113,11 +121,42 @@ class TClass():
 
 	def create_vtable(self):
 		SetMemberName(self.struct, 0, "vptr")
+		self.vtable = Vtable(self.addr_vtable)
+		self.vtable.getsize()
 
-class vptr():
-	def __init__(self, addr, size):
+class Vtable():
+	def __init__(self, addr):
 		self.addr = addr
-		self.size = size
+		self.size = 0
+		self.entries = []
+
+	def getsize(self):
+		actual_ea = self.addr
+		while (True):
+			# first entry case
+			f = idc.GetFlags(actual_ea)
+			if (len(self.entries) == 0):
+				if (not (idc.isRef(f) and (idc.hasName(f) or (f & FF_LABL)))):
+					print("[-] Not an entry of vtable")
+					return 0
+			elif (idc.isRef(f) and (idc.hasName(f) or (f & FF_LABL))):
+				# next vtable ?
+				break
+			if (not idc.hasValue(f) or not idc.isData(f)):
+				break
+			c = idc.Dword(actual_ea)
+			if c:
+				f = idc.GetFlags(c)
+				if (not idc.hasValue(f) or not idc.isCode(f) or idc.Dword(c) == 0):
+					break
+			else:
+				break
+			self.entries.append(actual_ea)
+			actual_ea += 4
+		print("[+] Vtable %08X - %08X, methods : %d" % (self.addr, actual_ea, (actual_ea - self.addr) / 4))
+
+
+
 
 def PLUGIN_ENTRY():
 	return vtable_helper()
