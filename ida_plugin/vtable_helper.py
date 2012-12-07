@@ -19,7 +19,6 @@ class VtableHelperForm(Form):
 	def OnFormChange(self, fid):
 		return 1
 
-
 	def Show(self):
         	# Compile the form once
         	if not self.Compiled():
@@ -30,7 +29,8 @@ class VtableHelperForm(Form):
 			NClass = TClass(self.txtClassName.value, 
 					self.iClassSize.value, 
 					self.iVtableAddr.value)
-			NClass.print_class()
+			NClass.printdbg()
+			NClass.create_struct()
 		return ok
 		
 class vtable_helper(idaapi.plugin_t):
@@ -54,24 +54,22 @@ class vtable_helper(idaapi.plugin_t):
 		pass
 
 class TClass():
-	def __init__(self, name, addrvtable, size):
+	def __init__(self, name, size, addrvtable):
 		self.name = name
 		self.addr_vtable = addrvtable
 		self.size = size
 		self.vtable = {}
-	# debug
-	def print_class(self):
+	def printdbg(self):
 		print("ClassName : %s" % self.name)
 		print("ClassSize : %X" % self.size)
 		print("Addr_vtable : %X" % self.addr_vtable)
-	def get_size(self):
-		return self.size
-	def get_addr(self):
-		return self.addr_vtable
 	def create_struct(self):
-		self.struct = AddStructEx(-1, self.name, 0) # index, name, is_union
-		for i in xrange(0, self.size):
+		self.struct = AddStrucEx(-1, self.name, 0) # index, name, is_union
+		for i in xrange(0, self.size / 4):
 			AddStrucMember(self.struct, "field_" + str(i), i * 4, FF_DWRD | FF_DATA, -1, 4)
+		if (self.size % 4) != 0:
+			AddStrucMember(self.struct, "field_" + str(self.size / 4), (self.size / 4) * 4, FF_DWRD | FF_DATA, -1, self.size % 4)
+
 	def create_vtable(self):
 		SetMemberName(self.struct, 0, "vptr") # Setup name of the first member
 
