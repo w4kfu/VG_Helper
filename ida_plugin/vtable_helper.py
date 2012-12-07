@@ -68,7 +68,7 @@ class TClass():
 		for i in xrange(0, self.size / 4):
 			AddStrucMember(self.struct, "field_" + str(i), i * 4, FF_DWRD | FF_DATA, -1, 4)
 		if (self.size % 4) != 0:
-			AddStrucMember(self.struct, "field_" + str(self.size / 4), (self.size / 4) * 4, FF_DWRD | FF_DATA, -1, self.size % 4)
+			AddStrucMember(self.struct, "field_" + str(self.size / 4), (self.size / 4) * 4, FF_DATA, -1, self.size % 4)
 
 	def create_vtable(self):
 		SetMemberName(self.struct, 0, "vptr") # Setup name of the first member
