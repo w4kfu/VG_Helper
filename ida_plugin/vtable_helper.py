@@ -1,7 +1,25 @@
 import idc 
 import idaapi
 import idautils
-import ctypes
+
+class rename_idp_hook_t(idaapi.IDP_Hooks):
+	def __init__(self):
+		idaapi.IDP_Hooks.__init__(self)
+		self.cmd = idaapi.cmd
+	
+	# http://code.google.com/p/idapython/source/browse/trunk/swig/idp.i?r=315#448
+	# keyword "pass" is missing
+	def custom_outop(self, op):
+		pass
+
+	# http://code.google.com/p/idapython/source/browse/trunk/swig/idp.i?r=315#459
+	# keyword "pass" is missing
+	def custom_mnem(self):
+		pass
+
+	def renamed(self, ea, name, local_name):
+		print("Name %s" % name)
+
 
 class VtableHelperForm(Form):
 	def __init__(self):
@@ -20,10 +38,8 @@ class VtableHelperForm(Form):
 		return 1
 
 	def Show(self):
-        	# Compile the form once
         	if not self.Compiled():
             		_, args = self.Compile()
-	        # Execute the form
         	ok = self.Execute()
 		if (ok != 0):
 			NClass = TClass(self.txtClassName.value, 
@@ -31,6 +47,7 @@ class VtableHelperForm(Form):
 					self.iVtableAddr.value)
 			NClass.printdbg()
 			NClass.create_struct()
+			NClass.create_vtable()
 		return ok
 		
 class vtable_helper(idaapi.plugin_t):
@@ -41,17 +58,20 @@ class vtable_helper(idaapi.plugin_t):
 	wanted_hotkey = "Alt-F5"
 
 	def init(self):
-		return idaapi.PLUGIN_OK
+		self.idphook = None
+ 		self.idphook = rename_idp_hook_t()
+    		self.idphook.hook()
+		return idaapi.PLUGIN_KEEP
 
 	def run(self, args):
         	f = VtableHelperForm()
-        	# Show the form
         	ok = f.Show()
         	if ok == 0:
             		f.Free()
 
 	def term(self):
-		pass
+		if self.idphook:
+			self.idphook.unhook()
 
 class TClass():
 	def __init__(self, name, size, addrvtable):
@@ -59,19 +79,30 @@ class TClass():
 		self.addr_vtable = addrvtable
 		self.size = size
 		self.vtable = {}
+
 	def printdbg(self):
 		print("ClassName : %s" % self.name)
 		print("ClassSize : %X" % self.size)
 		print("Addr_vtable : %X" % self.addr_vtable)
+
 	def create_struct(self):
-		self.struct = AddStrucEx(-1, self.name, 0) # index, name, is_union
+		if (self.size == 0):
+			print("Invalid class size")
+		struc_id = GetStrucIdByName(self.name)
+		if (struc_id != -1):
+			i = AskYN(0, "A class structure for %s already exists. Are you sur you want to remake it ?" % self.name)
+			if (i == -1 or i == 0):
+				self.struct = struc_id
+				return
+			DelStruc(struc_id)
+		self.struct = AddStrucEx(-1, self.name, 0)
 		for i in xrange(0, self.size / 4):
 			AddStrucMember(self.struct, "field_" + str(i), i * 4, FF_DWRD | FF_DATA, -1, 4)
 		if (self.size % 4) != 0:
 			AddStrucMember(self.struct, "field_" + str(self.size / 4), (self.size / 4) * 4, FF_DATA, -1, self.size % 4)
 
 	def create_vtable(self):
-		SetMemberName(self.struct, 0, "vptr") # Setup name of the first member
+		SetMemberName(self.struct, 0, "vptr")
 
 class vptr():
 	def __init__(self, addr, size):
@@ -79,4 +110,5 @@ class vptr():
 		self.size = size
 
 def PLUGIN_ENTRY():
+	#hook_to_notification_point(HT_IDB, 0, 0)
 	return vtable_helper()
