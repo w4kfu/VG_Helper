@@ -61,7 +61,17 @@ class vtable_helper(idaapi.plugin_t):
 		self.idphook = None
  		self.idphook = rename_idp_hook_t()
     		self.idphook.hook()
+		self.segname = "vtablehelper"
+		self.getinfo()
 		return idaapi.PLUGIN_KEEP
+
+	def getinfo(self):
+		for seg in idautils.Segments():
+			if self.segname == idc.SegName(seg):
+				print("[+] Segment vtablehelper found !")
+				self.infostart = idc.SegStart(seg)
+				self.infoend = idc.SegEnd(seg)
+
 
 	def run(self, args):
         	f = VtableHelperForm()
@@ -110,5 +120,4 @@ class vptr():
 		self.size = size
 
 def PLUGIN_ENTRY():
-	#hook_to_notification_point(HT_IDB, 0, 0)
 	return vtable_helper()
